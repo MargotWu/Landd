@@ -1,0 +1,6 @@
+supabase
+groq
+geopy
+beautifulsoup4
+playwright
+requests
