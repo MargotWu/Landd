@@ -1,4 +1,4 @@
-# Landd — AI Rental Intelligence for Dutch Expats
+# Landd — AI Rental Intelligence for Expats in the Netherlands
 
 An autonomous agent that aggregates rental listings from Dutch platforms and uses AI to surface what actually matters to internationals: **registration eligibility, utilities, tenant requirements, pets policy, and transit access** — all in one structured feed.
 
