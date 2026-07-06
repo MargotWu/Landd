@@ -65,4 +65,3 @@ python scraper.py
 
 ---
 
-*Built as a portfolio project demonstrating end-to-end AI agent development — scraping, LLM extraction, geospatial enrichment, and autonomous scheduling.*
