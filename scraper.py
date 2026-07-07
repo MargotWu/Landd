@@ -112,6 +112,9 @@ Listing text:
 {text[:3000]}
 
 For pets: "huisdieren toegestaan"/"pets allowed" = true; "geen huisdieren"/"no pets" = false; "in overleg" = unknown.
+For price: the MONTHLY RENT in euros (an integer). Do NOT confuse it with the deposit (borg/waarborgsom) or one-time fees. If unclear, use null.
+For size: the living area in square meters as text (e.g. "40 m²"), or null.
+For area: the neighbourhood or city (e.g. "Rotterdam", "Centrum"), or null.
 
 Return exactly:
 {{
@@ -121,6 +124,9 @@ Return exactly:
   "furnished": "true/false/unknown",
   "pets_allowed": "true/false/unknown",
   "lease_months": "number or unknown",
+  "price": "monthly rent as integer, or null",
+  "size": "living area as text like '40 m²', or null",
+  "area": "neighbourhood or city, or null",
   "confidence": "0.0 to 1.0"
 }}"""
     response = groq_client.chat.completions.create(
@@ -218,6 +224,22 @@ async def process_listing(url, source):
     except (ValueError, TypeError):
         lease = None
 
+    # parse price to an integer (AI may return "1200", 1200, "€1200" or null)
+    price = fields.get("price")
+    if isinstance(price, str):
+        digits = re.sub(r"[^\d]", "", price)
+        price = int(digits) if digits else None
+    elif not isinstance(price, int):
+        price = None
+
+    # size / area: keep as text, treat empty/"null" as None
+    size = fields.get("size")
+    if not size or str(size).lower() in ("null", "unknown", ""):
+        size = None
+    area = fields.get("area")
+    if not area or str(area).lower() in ("null", "unknown", ""):
+        area = None
+
     # extract a usable title/address
     if source == "Kamernet":
         title = url.split("/")[-1].replace("-", " ")
@@ -229,6 +251,9 @@ async def process_listing(url, source):
         "source": source,
         "title": title,
         "url": url,
+        "price": price,
+        "size": size,
+        "area": area,
         "registration": reg_status,
         "utilities": fields["utilities"] == "true",
         "tenant_type": fields["tenant_type"],
