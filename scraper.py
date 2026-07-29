@@ -127,6 +127,7 @@ Return exactly:
   "price": "monthly rent as integer, or null",
   "size": "living area as text like '40 m²', or null",
   "area": "neighbourhood or city, or null",
+  "address": "street name and city like 'Weena, Rotterdam', or null",
   "confidence": "0.0 to 1.0"
 }}"""
     response = groq_client.chat.completions.create(
@@ -240,8 +241,11 @@ async def process_listing(url, source):
     if not area or str(area).lower() in ("null", "unknown", ""):
         area = None
 
-    # extract a usable title/address
-    if source == "Kamernet":
+   # extract a usable title/address — prefer AI-extracted real address
+    address = fields.get("address")
+    if address and str(address).lower() not in ("null", "unknown", ""):
+        title = address
+    elif source == "Kamernet":
         title = url.split("/")[-1].replace("-", " ")
     else:
         title = url.split("/Rotterdam/")[-1].replace("-", " ")[:60] \
