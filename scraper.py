@@ -57,47 +57,66 @@ async def fetch_detail(url):
     return soup.get_text(separator=" ", strip=True)
 
 
+
+CITIES = ["rotterdam", "amsterdam", "utrecht"]
+
+
+HA_CITIES = ["Rotterdam", "Amsterdam", "Utrecht"]
+
+
 async def scrape_kamernet():
-    """Scrape Kamernet Rotterdam listing detail links."""
+    """Scrape Kamernet listing detail links across multiple cities."""
+    all_links = []
     async with async_playwright() as p:
         browser = await p.chromium.launch()
         page = await browser.new_page()
-        await page.goto("https://kamernet.nl/en/for-rent/rooms-rotterdam",
-                        wait_until="domcontentloaded", timeout=60000)
-        await page.wait_for_timeout(3000)
-        content = await page.content()
+        for city in CITIES:
+            try:
+                await page.goto(f"https://kamernet.nl/en/for-rent/rooms-{city}",
+                                wait_until="domcontentloaded", timeout=60000)
+                await page.wait_for_timeout(3000)
+                content = await page.content()
+                soup = BeautifulSoup(content, "html.parser")
+                links = soup.find_all("a", href=True)
+                detail = [a["href"] for a in links
+                          if "/en/for-rent/" in a["href"] and f"rooms-{city}" not in a["href"]]
+                all_links.extend(detail)
+                print(f"  Kamernet {city}: {len(detail)} links")
+            except Exception as e:
+                print(f"  Kamernet {city} failed: {e}")
         await browser.close()
-    soup = BeautifulSoup(content, "html.parser")
-    links = soup.find_all("a", href=True)
-    detail = [a["href"] for a in links
-              if "/en/for-rent/" in a["href"] and "rooms-rotterdam" not in a["href"]]
-    return ["https://kamernet.nl" + l for l in set(detail)]
+    return ["https://kamernet.nl" + l for l in set(all_links)]
 
 
 async def scrape_housinganywhere():
-    """Scrape HousingAnywhere Rotterdam listing links + basic info."""
+    """Scrape HousingAnywhere listing links across multiple cities."""
+    all_links = []
     async with async_playwright() as p:
         browser = await p.chromium.launch()
         page = await browser.new_page()
-        await page.goto("https://housinganywhere.com/s/Rotterdam--Netherlands",
-                        wait_until="domcontentloaded", timeout=60000)
-        await page.wait_for_timeout(6000)
-        content = await page.content()
+        for city in HA_CITIES:
+            try:
+                await page.goto(f"https://housinganywhere.com/s/{city}--Netherlands",
+                                wait_until="domcontentloaded", timeout=60000)
+                await page.wait_for_timeout(6000)
+                content = await page.content()
+                soup = BeautifulSoup(content, "html.parser")
+                cards = soup.find_all("div", class_="css-71zbny-main")
+                for card in cards:
+                    parent = card
+                    for _ in range(6):
+                        parent = parent.parent
+                        if parent is None:
+                            break
+                        a = parent.find("a", href=True)
+                        if a and "/room/" in a["href"]:
+                            all_links.append(a["href"])
+                            break
+                print(f"  HousingAnywhere {city}: found cards")
+            except Exception as e:
+                print(f"  HousingAnywhere {city} failed: {e}")
         await browser.close()
-    soup = BeautifulSoup(content, "html.parser")
-    cards = soup.find_all("div", class_="css-71zbny-main")
-    links = []
-    for card in cards:
-        parent = card
-        for _ in range(6):
-            parent = parent.parent
-            if parent is None:
-                break
-            a = parent.find("a", href=True)
-            if a and "/room/" in a["href"]:
-                links.append(a["href"])
-                break
-    return list(set(links))
+    return list(set(all_links))
 
 
 # ----------------------------------------------------------------------------
@@ -286,7 +305,7 @@ async def main():
 
     # Process (limit per run to stay within rate limits)
     processed = 0
-    for url in kamernet_links[:10]:
+    for url in kamernet_links[:30]:
         try:
             r = await process_listing(url, "Kamernet")
             print(f"  ✓ {r['title'][:35]} | reg:{r['registration']}")
@@ -294,7 +313,7 @@ async def main():
         except Exception as e:
             print(f"  ✗ {url[:50]} — {e}")
 
-    for url in ha_links[:10]:
+    for url in ha_links[:30]:
         try:
             r = await process_listing(url, "HousingAnywhere")
             print(f"  ✓ {r['title'][:35]} | reg:{r['registration']}")
