@@ -88,27 +88,28 @@ async def scrape_kamernet():
     return ["https://kamernet.nl" + l for l in set(all_links)]
 
 async def scrape_housinganywhere():
-    """Scrape HousingAnywhere listing links across cities (by /room/ links, resilient to class changes)."""
+    """Scrape HousingAnywhere across cities, multiple pages (by /room/ links)."""
     all_links = []
+    PAGES = 3  
     async with async_playwright() as p:
         browser = await p.chromium.launch()
         page = await browser.new_page()
         for city in HA_CITIES:
-            try:
-                await page.goto(f"https://housinganywhere.com/s/{city}--Netherlands",
-                                wait_until="domcontentloaded", timeout=60000)
-                await page.wait_for_timeout(6000)
-                content = await page.content()
-                soup = BeautifulSoup(content, "html.parser")
-                # 直接靠 /room/ 链接找房源,不依赖会变的 class
-                room_links = [a["href"] for a in soup.find_all("a", href=True) if "/room/" in a["href"]]
-                # 补全成完整 URL
-                for link in room_links:
-                    full = link if link.startswith("http") else "https://housinganywhere.com" + link
-                    all_links.append(full)
-                print(f"  HousingAnywhere {city}: {len(room_links)} rooms")
-            except Exception as e:
-                print(f"  HousingAnywhere {city} failed: {e}")
+            for page_num in range(1, PAGES + 1):
+                try:
+                    url = f"https://housinganywhere.com/s/{city}--Netherlands?page={page_num}"
+                    await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                    await page.wait_for_timeout(5000)
+                    content = await page.content()
+                    soup = BeautifulSoup(content, "html.parser")
+                    room_links = [a["href"] for a in soup.find_all("a", href=True) if "/room/" in a["href"]]
+                    for link in room_links:
+                        clean = link.split("?")[0]
+                        full = clean if clean.startswith("http") else "https://housinganywhere.com" + clean
+                        all_links.append(full)
+                    print(f"  HousingAnywhere {city} page{page_num}: {len(room_links)} rooms")
+                except Exception as e:
+                    print(f"  HousingAnywhere {city} page{page_num} failed: {e}")
         await browser.close()
     return list(set(all_links))
 
