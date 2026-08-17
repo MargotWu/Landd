@@ -263,7 +263,7 @@ async def process_listing(url, source):
     else:
         title = url.split("/Rotterdam/")[-1].replace("-", " ")[:60] \
             if "/Rotterdam/" in url else "Rotterdam listing"
-try:
+    try:
         t_station, t_type, t_min = get_nearest_transit(title)
     except Exception:
         t_station, t_type, t_min = None, None, None
