@@ -87,9 +87,8 @@ async def scrape_kamernet():
         await browser.close()
     return ["https://kamernet.nl" + l for l in set(all_links)]
 
-
 async def scrape_housinganywhere():
-    """Scrape HousingAnywhere listing links across multiple cities."""
+    """Scrape HousingAnywhere listing links across cities (by /room/ links, resilient to class changes)."""
     all_links = []
     async with async_playwright() as p:
         browser = await p.chromium.launch()
@@ -101,18 +100,13 @@ async def scrape_housinganywhere():
                 await page.wait_for_timeout(6000)
                 content = await page.content()
                 soup = BeautifulSoup(content, "html.parser")
-                cards = soup.find_all("div", class_="css-71zbny-main")
-                for card in cards:
-                    parent = card
-                    for _ in range(6):
-                        parent = parent.parent
-                        if parent is None:
-                            break
-                        a = parent.find("a", href=True)
-                        if a and "/room/" in a["href"]:
-                            all_links.append(a["href"])
-                            break
-                print(f"  HousingAnywhere {city}: found cards")
+                # 直接靠 /room/ 链接找房源,不依赖会变的 class
+                room_links = [a["href"] for a in soup.find_all("a", href=True) if "/room/" in a["href"]]
+                # 补全成完整 URL
+                for link in room_links:
+                    full = link if link.startswith("http") else "https://housinganywhere.com" + link
+                    all_links.append(full)
+                print(f"  HousingAnywhere {city}: {len(room_links)} rooms")
             except Exception as e:
                 print(f"  HousingAnywhere {city} failed: {e}")
         await browser.close()
