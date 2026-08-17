@@ -263,6 +263,10 @@ async def process_listing(url, source):
     else:
         title = url.split("/Rotterdam/")[-1].replace("-", " ")[:60] \
             if "/Rotterdam/" in url else "Rotterdam listing"
+try:
+        t_station, t_type, t_min = get_nearest_transit(title)
+    except Exception:
+        t_station, t_type, t_min = None, None, None
 
     record = {
         "source": source,
@@ -279,6 +283,8 @@ async def process_listing(url, source):
         "duration_min": lease,
         "tenant_note": reg_reason,
         "raw_description": text[:1000],
+        "transit_min": t_min,                     
+        "transit_station": f"{t_station} ({t_type})" if t_station else None, 
     }
     supabase.table("listings").upsert(record, on_conflict="url").execute()
     return record
